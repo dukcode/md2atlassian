@@ -91,7 +91,7 @@ def md_to_html(md_path: str) -> str:
             return match.group(0)
 
         content = code.group(1)
-        for old, new in [("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", '"')]:
+        for old, new in [("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", '"'), ("&#39;", "'")]:
             content = content.replace(old, new)
 
         lang_param = f'<ac:parameter ac:name="language">{lang}</ac:parameter>' if lang else ""
