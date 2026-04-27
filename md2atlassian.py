@@ -178,6 +178,11 @@ def md_to_jira(md_path: str) -> str:
 
     body = re.sub(r"\{code:([\w#+]+)\}", strip_unsupported_lang, body)
 
+    # 인라인 모노스페이스 {{X}}가 단어 문자(한글 등)와 인접하면 Jira 파서가
+    # 경계로 인식하지 못해 리터럴로 표시됨 → 해당 경우만 마크업 제거
+    body = re.sub(r"(?<=\w)\{\{([^{}\n]+?)\}\}", r"\1", body)
+    body = re.sub(r"\{\{([^{}\n]+?)\}\}(?=\w)", r"\1", body)
+
     return body
 
 
