@@ -38,6 +38,15 @@ TOKEN_ENV = {
     "jira": "MD2JIRA_TOKEN",
 }
 
+# Jira `{code}` 매크로가 지원하는 언어 (그 외는 source-code formatter 에러)
+SUPPORTED_JIRA_CODE_LANGS = {
+    "actionscript", "ada", "applescript", "bash", "c", "c#", "c++", "cpp",
+    "css", "erlang", "go", "groovy", "haskell", "html", "java", "javascript",
+    "js", "json", "lua", "none", "nyan", "objc", "perl", "php", "python",
+    "r", "rainbow", "ruby", "scala", "sh", "sql", "swift", "visualbasic",
+    "xml", "yaml",
+}
+
 
 def detect_target(url: str) -> str:
     """URL에서 대상(confluence/jira)을 판별한다."""
@@ -161,6 +170,13 @@ def md_to_jira(md_path: str) -> str:
 
     # 첫 h1 제거 (Jira 이슈 summary와 중복)
     body = re.sub(r"\Ah1\.\s.*\n+", "", body)
+
+    # Jira가 지원하지 않는 코드 블록 언어는 제거 (예: kotlin)
+    def strip_unsupported_lang(match):
+        lang = match.group(1).lower()
+        return match.group(0) if lang in SUPPORTED_JIRA_CODE_LANGS else "{code}"
+
+    body = re.sub(r"\{code:([\w#+]+)\}", strip_unsupported_lang, body)
 
     return body
 
