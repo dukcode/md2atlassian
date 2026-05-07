@@ -92,6 +92,13 @@ def preprocess_markdown(md: str) -> str:
     md = re.sub(r"^(#{1,6})\s+\d+(?:\.\d+)*\.?\s+", r"\1 ", md, flags=re.MULTILINE)
     # bold 텍스트 직후 리스트가 오는 경우 빈 줄 삽입
     md = re.sub(r"(\*\*[^*]+:\*\*)\n(- )", r"\1\n\n\2", md)
+    # 일반 텍스트 줄 직후 리스트가 빈 줄 없이 오면 빈 줄 삽입
+    # (Obsidian은 lazy 파싱으로 렌더링되지만 pandoc은 같은 단락으로 합침)
+    md = re.sub(
+        r"(?m)^(?!\s*$)(?!\s*(?:[-*+]|\d+[.)])\s)([^\n]*\S)\n(\s*(?:[-*+]|\d+[.)])\s)",
+        r"\1\n\n\2",
+        md,
+    )
     # 백슬래시+공백 → pandoc이 non-breaking space로 해석하므로 이스케이프
     md = re.sub(r"\\(?= )", r"\\\\", md)
     # mermaid → 일반 코드 블록 (Confluence/Jira 모두 미지원)
