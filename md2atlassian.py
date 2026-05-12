@@ -63,27 +63,29 @@ def detect_target(url: str) -> str:
 def parse_confluence_url(url: str) -> tuple[str, str]:
     """Confluence URL에서 base_url과 page_id를 추출한다."""
     parsed = urllib.parse.urlparse(url)
-    base_url = f"{parsed.scheme}://{parsed.netloc}"
 
-    match = re.search(r"/pages/(\d+)", parsed.path)
+    match = re.search(r"^(?P<context>.*?)(?:/spaces/[^/]+)?/pages/(?P<page_id>\d+)", parsed.path)
     if not match:
         print(f"ERROR: URL에서 page ID를 찾을 수 없습니다: {url}", file=sys.stderr)
         sys.exit(1)
 
-    return base_url, match.group(1)
+    context_path = match.group("context").rstrip("/")
+    base_url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, context_path, "", "", ""))
+    return base_url, match.group("page_id")
 
 
 def parse_jira_url(url: str) -> tuple[str, str]:
     """Jira URL에서 base_url과 issue key를 추출한다."""
     parsed = urllib.parse.urlparse(url)
-    base_url = f"{parsed.scheme}://{parsed.netloc}"
 
-    match = re.search(r"/browse/([A-Z][A-Z0-9_]+-\d+)", parsed.path)
+    match = re.search(r"^(?P<context>.*?)/browse/(?P<issue_key>[A-Z][A-Z0-9_]+-\d+)", parsed.path)
     if not match:
         print(f"ERROR: URL에서 issue key를 찾을 수 없습니다: {url}", file=sys.stderr)
         sys.exit(1)
 
-    return base_url, match.group(1)
+    context_path = match.group("context").rstrip("/")
+    base_url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, context_path, "", "", ""))
+    return base_url, match.group("issue_key")
 
 
 def preprocess_markdown(md: str) -> str:
