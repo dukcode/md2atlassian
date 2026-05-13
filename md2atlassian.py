@@ -88,8 +88,11 @@ def parse_jira_url(url: str) -> tuple[str, str]:
     return base_url, match.group("issue_key")
 
 
-def preprocess_markdown(md: str) -> str:
-    """공통 Markdown 전처리."""
+FENCE_START_RE = re.compile(r"^(?P<indent> {0,3})(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
+
+
+def preprocess_markdown_text(md: str) -> str:
+    """fenced code block 밖 Markdown 전처리."""
     # 헤딩의 섹션 번호 제거 (예: "## 2.1 제목" → "## 제목")
     md = re.sub(r"^(#{1,6})\s+\d+(?:\.\d+)*\.?\s+", r"\1 ", md, flags=re.MULTILINE)
     # bold 텍스트 직후 리스트가 오는 경우 빈 줄 삽입
@@ -103,9 +106,62 @@ def preprocess_markdown(md: str) -> str:
     )
     # 백슬래시+공백 → pandoc이 non-breaking space로 해석하므로 이스케이프
     md = re.sub(r"\\(?= )", r"\\\\", md)
-    # mermaid → 일반 코드 블록 (Confluence/Jira 모두 미지원)
-    md = re.sub(r"```mermaid", "```", md)
     return md
+
+
+def strip_mermaid_fence(line: str) -> str:
+    """mermaid fence 시작 줄을 일반 코드 블록으로 낮춘다."""
+    body = line.rstrip("\r\n")
+    newline = line[len(body):]
+    match = FENCE_START_RE.match(body)
+    if not match:
+        return line
+
+    info = match.group("info").strip()
+    first_word = info.split(maxsplit=1)[0].lower() if info else ""
+    if first_word == "mermaid":
+        return f'{match.group("indent")}{match.group("fence")}{newline}'
+    return line
+
+
+def is_fence_close(line: str, fence_char: str, fence_len: int) -> bool:
+    """현재 fenced code block을 닫는 줄인지 확인한다."""
+    body = line.rstrip("\r\n")
+    return bool(re.match(rf"^ {{0,3}}{re.escape(fence_char)}{{{fence_len},}}\s*$", body))
+
+
+def preprocess_markdown(md: str) -> str:
+    """공통 Markdown 전처리. fenced code block 내부 본문은 그대로 둔다."""
+    parts: list[str] = []
+    text_buffer: list[str] = []
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+
+    for line in md.splitlines(keepends=True):
+        if in_fence:
+            parts.append(line)
+            if is_fence_close(line, fence_char, fence_len):
+                in_fence = False
+            continue
+
+        match = FENCE_START_RE.match(line.rstrip("\r\n"))
+        if match:
+            if text_buffer:
+                parts.append(preprocess_markdown_text("".join(text_buffer)))
+                text_buffer = []
+            fence = match.group("fence")
+            parts.append(strip_mermaid_fence(line))
+            in_fence = True
+            fence_char = fence[0]
+            fence_len = len(fence)
+        else:
+            text_buffer.append(line)
+
+    if text_buffer:
+        parts.append(preprocess_markdown_text("".join(text_buffer)))
+
+    return "".join(parts)
 
 
 def run_pandoc(md: str, to_format: str, extra_args: list[str] | None = None) -> str:
